@@ -1,0 +1,1161 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>نظام التقارير اليومية للموظفين</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap');
+        
+        body {
+            font-family: 'Tajawal', sans-serif;
+            background: #f7fafc;
+        }
+        
+        .task-section {
+            transition: all 0.3s ease;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        
+        .visits-card { border-top: 4px solid #3b82f6; }
+        .calls-card { border-top: 4px solid #10b981; }
+        .sales-card { border-top: 4px solid #f59e0b; }
+        .quotes-card { border-top: 4px solid #8b5cf6; }
+        .other-card { border-top: 4px solid #ec4899; }
+        
+        /* Animation for new tasks */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .new-task {
+            animation: fadeIn 0.3s ease-out;
+        }
+        
+        /* Custom scrollbar */
+        .custom-scroll::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        
+        .custom-scroll::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+        
+        .custom-scroll::-webkit-scrollbar-thumb {
+            background: #cbd5e0;
+            border-radius: 10px;
+        }
+        
+        .dynamic-task-container {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        /* Print styles */
+        @media print {
+            .no-print {
+                display: none !important;
+            }
+            
+            body {
+                background: white;
+                font-size: 12pt;
+            }
+            
+            .print-header {
+                display: block !important;
+                text-align: center;
+                margin-bottom: 20px;
+                padding-bottom: 10px;
+                border-bottom: 2px solid #eee;
+            }
+            
+            .dynamic-task-container {
+                max-height: none;
+                overflow: visible;
+            }
+        }
+    </style>
+</head>
+<body class="py-8 px-4 min-h-screen">
+    <div class="max-w-6xl mx-auto">
+        <!-- Header -->
+        <header class="text-center mb-10 no-print">
+            <h1 class="text-3xl md:text-4xl font-bold text-gray-800 mb-3">
+                <span class="text-blue-600">نظام</span> التقارير اليومية
+            </h1>
+            <p class="text-gray-600 max-w-2xl mx-auto">
+                سجل مهامك اليومية (زيارات، اتصالات، مبيعات) وأرسل تقريرك إلى المدير
+            </p>
+        </header>
+
+        <!-- Employee Info -->
+        <div class="bg-white rounded-xl shadow-md p-6 mb-8 no-print">
+            <h2 class="text-xl font-semibold text-gray-800 mb-4">
+                <i class="fas fa-user-tie text-blue-500 mr-2"></i>
+                معلومات الموظف
+            </h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">اسم الموظف</label>
+                    <input type="text" id="employeeName" 
+                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                           placeholder="اسم الموظف" required>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">البريد الإلكتروني</label>
+                    <input type="email" id="employeeEmail" 
+                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                           placeholder="email@example.com" required>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">تاريخ التقرير</label>
+                    <input type="date" id="reportDate" 
+                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                           value="${new Date().toISOString().split('T')[0]}">
+                </div>
+            </div>
+        </div>
+
+        <!-- Print Header (hidden by default) -->
+        <div class="print-header hidden mb-8">
+            <h1 class="text-2xl font-bold text-center mb-2">التقرير اليومي</h1>
+            <div class="flex justify-between text-sm">
+                <div><strong>الموظف:</strong> <span id="printEmployeeName"></span></div>
+                <div><strong>البريد الإلكتروني:</strong> <span id="printEmployeeEmail"></span></div>
+                <div><strong>التاريخ:</strong> <span id="printReportDate"></span></div>
+            </div>
+        </div>
+
+        <!-- Dynamic Tasks Container -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            <!-- Visits Section -->
+            <div class="task-section visits-card bg-white shadow-md">
+                <div class="bg-blue-50 px-5 py-3 border-b border-blue-100">
+                    <h3 class="font-semibold text-blue-800 flex items-center justify-between">
+                        <span><i class="fas fa-map-marker-alt mr-2"></i> الزيارات الميدانية</span>
+                        <button id="addVisitBtn" class="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded">
+                            <i class="fas fa-plus mr-1"></i> إضافة
+                        </button>
+                    </h3>
+                </div>
+                
+                <div class="p-5 dynamic-task-container" id="visitsContainer">
+                    <!-- Visits will be added here dynamically -->
+                    <p class="text-sm text-gray-500 text-center">لا توجد زيارات مسجلة بعد</p>
+                </div>
+            </div>
+            <!---عروض الاسعار-->
+                 <div class="task-section visits-card bg-white shadow-md">
+                <div class="bg-blue-50 px-5 py-3 border-b border-blue-100">
+                    <h3 class="font-semibold text-blue-800 flex items-center justify-between">
+                        <span><i class="fas fa-map-marker-alt mr-2"></i> عروض الأسعار</span>
+                        <button id="addVisitBtn" class="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded">
+                            <i class="fas fa-plus mr-1"></i> إضافة
+                        </button>
+                    </h3>
+                </div>
+                
+                <div class="p-5 dynamic-task-container" id="visitsContainer">
+                    <!-- Visits will be added here dynamically -->
+                    <p class="text-sm text-gray-500 text-center">لا توجد زيارات مسجلة بعد</p>
+                </div>
+            </div>
+            
+            <!-- Calls Section -->
+            <div class="task-section calls-card bg-white shadow-md">
+                <div class="bg-green-50 px-5 py-3 border-b border-green-100">
+                    <h3 class="font-semibold text-green-800 flex items-center justify-between">
+                        <span><i class="fas fa-phone-alt mr-2"></i> المكالمات الهاتفية</span>
+                        <button id="addCallBtn" class="text-xs bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded">
+                            <i class="fas fa-plus mr-1"></i> إضافة
+                        </button>
+                    </h3>
+                </div>
+                
+                <div class="p-5 dynamic-task-container" id="callsContainer">
+                    <!-- Calls will be added here dynamically -->
+                    <p class="text-sm text-gray-500 text-center">لا توجد مكالمات مسجلة بعد</p>
+                </div>
+            </div>
+            
+            <!-- Sales Section -->
+            <div class="task-section sales-card bg-white shadow-md">
+                <div class="bg-amber-50 px-5 py-3 border-b border-amber-100">
+                    <h3 class="font-semibold text-amber-800 flex items-center justify-between">
+                        <span><i class="fas fa-shopping-cart mr-2"></i> عمليات البيع</span>
+                        <button id="addSaleBtn" class="text-xs bg-amber-600 hover:bg-amber-700 text-white px-3 py-1 rounded">
+                            <i class="fas fa-plus mr-1"></i> إضافة
+                        </button>
+                    </h3>
+                </div>
+                
+                <div class="p-5 dynamic-task-container" id="salesContainer">
+                    <!-- Sales will be added here dynamically -->
+                    <p class="text-sm text-gray-500 text-center">لا توجد عمليات بيع مسجلة بعد</p>
+                </div>
+            </div>
+            
+            <!-- Summary Section -->
+            <div class="bg-white rounded-xl shadow-md p-6">
+                <h2 class="text-xl font-semibold text-gray-800 mb-4 flex items-center">
+                    <i class="fas fa-chart-pie text-gray-500 mr-2"></i>
+                    ملخص التقرير
+                </h2>
+                
+                <div class="space-y-4 mb-6">
+                    <div class="flex justify-between items-center">
+                        <span class="text-sm font-medium text-gray-600">عدد الزيارات</span>
+                        <span id="visitsCount" class="font-semibold text-blue-600">0</span>
+                    </div>
+                    
+                    <div class="flex justify-between items-center">
+                        <span class="text-sm font-medium text-gray-600">عدد المكالمات</span>
+                        <span id="callsCount" class="font-semibold text-green-600">0</span>
+                    </div>
+
+                    <div class="flex justify-between items-center">
+                        <span class="text-sm font-medium text-gray-600">عدد عروض الأسعار</span>
+                        <span id="callsCount" class="font-semibold text-green-600">0</span>
+                    </div>
+                    
+                    <div class="flex justify-between items-center">
+                        <span class="text-sm font-medium text-gray-600">عدد عمليات البيع</span>
+                        <span id="salesCount" class="font-semibold text-amber-600">0</span>
+                    </div>
+                    
+                    <div class="pt-4 border-t border-gray-200">
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm font-medium text-gray-600">إجمالي المبيعات</span>
+                            <span id="totalSales" class="font-bold text-lg text-gray-800">0 ر.س</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="space-y-3 no-print">
+                    <button id="generateReportBtn" 
+                            class="w-full bg-gray-800 hover:bg-gray-900 text-white font-medium py-2 px-4 rounded-lg transition duration-300">
+                        <i class="fas fa-file-pdf mr-2"></i> عرض التقرير
+                    </button>
+                    
+                    <button id="sendReportBtn" 
+                            class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition duration-300">
+                        <i class="fas fa-paper-plane mr-2"></i> إرسال التقرير
+                    </button>
+                    
+                
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Email Modal -->
+    <div id="emailModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50 px-4 no-print">
+        <div class="bg-white rounded-xl shadow-xl p-6 w-full max-w-md">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-semibold text-gray-800">إرسال التقرير بالبريد الإلكتروني</h3>
+                <button id="closeEmailModal" class="text-gray-500 hover:text-gray-700">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <form id="emailForm" class="space-y-4">
+                <div>
+                    <label for="managerEmail" class="block text-sm font-medium text-gray-700 mb-1">البريد الإلكتروني للمدير</label>
+                    <input type="email" id="managerEmail" 
+                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                           placeholder="name@example.com" required>
+                </div>
+                
+                <div>
+                    <label for="emailSubject" class="block text-sm font-medium text-gray-700 mb-1">عنوان الرسالة</label>
+                    <input type="text" id="emailSubject" 
+                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                           value="التقرير اليومي للموظف" required>
+                </div>
+                
+                <div>
+                    <label for="emailMessage" class="block text-sm font-medium text-gray-700 mb-1">رسالة إضافية</label>
+                    <textarea id="emailMessage" rows="3"
+                              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                              placeholder="اكتب أي ملاحظات إضافية هنا..."></textarea>
+                </div>
+                
+                <div class="flex justify-end space-x-3 pt-4">
+                    <button type="button" id="cancelEmailBtn"
+                            class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition duration-200">
+                        إلغاء
+                    </button>
+                    <button type="submit"
+                            class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition duration-200">
+                        <i class="fas fa-paper-plane mr-2"></i> إرسال
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Generated Report Modal -->
+    <div id="reportModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center hidden z-50 px-4 py-10 no-print">
+        <div class="bg-white rounded-xl shadow-xl p-6 w-full max-w-4xl max-h-[90vh] overflow-auto">
+            <div class="flex justify-between items-center mb-4 sticky top-0 bg-white py-2">
+                <h3 class="text-xl font-semibold text-gray-800">التقرير اليومي</h3>
+                <div>
+                   
+                    <button id="closeReportModal" class="text-gray-500 hover:text-gray-700">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <div id="reportContent" class="py-4">
+                <!-- Report content will be generated here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Visit Task Template (Hidden) -->
+    <template id="visitTaskTemplate">
+        <div class="bg-white p-4 rounded-lg border border-gray-200 mb-4 new-task">
+            <div class="flex justify-between items-start">
+                <h4 class="font-medium text-gray-900 flex-1">زيارة جديدة</h4>
+                <button class="text-red-500 hover:text-red-700 delete-task">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <div class="mt-3 space-y-3">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">اسم الزبون</label>
+                    <input type="text" class="visit-client w-full px-3 py-1 border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                           placeholder="اسم الزبون" required>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">نوع الزيارة</label>
+                    <select class="visit-type w-full px-3 py-1 border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="جديدة">جديدة</option>
+                        <option value="متابعة">متابعة</option>
+                        <option value="تثبيت عرض اسعار">تثبيت عرض اسعار</option>
+                        <option value="صيانة">صيانة</option>
+                        <option value="كشف فني بدون صيانة">كشف فني بدون صيانة</option>
+                        <option value="كشف فني لتحضير عرض اسعار">كشف فني لتحضير عرض اسعار</option>
+                        <option value="زيارة تحصيل فاتورة">زيارة تحصيل فاتورة</option>
+                        <option value="زيارة متابعة تسليم قطع">زيارة متابعة تسليم قطع</option>
+                    </select>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">ملاحظات</label>
+                    <textarea class="visit-notes w-full px-3 py-1 border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                              rows="2" placeholder="ملاحظات عن الزيارة"></textarea>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <!----template price-->
+       <template id="visitTaskTemplate">
+        <div class="bg-white p-4 rounded-lg border border-gray-200 mb-4 new-task">
+            <div class="flex justify-between items-start">
+                <h4 class="font-medium text-gray-900 flex-1">عرض سعر جديد </h4>
+                <button class="text-red-500 hover:text-red-700 delete-task">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <div class="mt-3 space-y-3">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">اسم الزبون</label>
+                    <input type="text" class="visit-client w-full px-3 py-1 border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                           placeholder="اسم الزبون" required>
+                </div>
+
+                
+             
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">ملاحظات</label>
+                    <textarea class="visit-notes w-full px-3 py-1 border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                              rows="2" placeholder="ملاحظات عن عرض السعر"></textarea>
+                </div>
+            </div>
+        </div>
+    </template>
+
+
+    <!-- Call Task Template (Hidden) -->
+    <template id="callTaskTemplate">
+        <div class="bg-white p-4 rounded-lg border border-gray-200 mb-4 new-task">
+            <div class="flex justify-between items-start">
+                <h4 class="font-medium text-gray-900 flex-1">مكالمة جديدة</h4>
+                <button class="text-red-500 hover:text-red-700 delete-task">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <div class="mt-3 space-y-3">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">اسم الزبون</h4>
+                    <input type="text" class="call-client w-full px-3 py-1 border border-gray-300 rounded-lg focus:ring-1 focus:ring-green-500 focus:border-green-500"
+                           placeholder="اسم الزبون" required>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">رقم الهاتف</h4>
+                    <input type="tel" class="call-phone w-full px-3 py-1 border border-gray-300 rounded-lg focus:ring-1 focus:ring-green-500 focus:border-green-500"
+                           placeholder="رقم الهاتف">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">ملاحظات</h4>
+                    <textarea class="call-notes w-full px-3 py-1 border border-gray-300 rounded-lg focus:ring-1 focus:ring-green-500 focus:border-green-500"
+                              rows="2" placeholder="ملاحظات عن المكالمة"></textarea>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <!-- Sale Task Template (Hidden) -->
+    <template id="saleTaskTemplate">
+        <div class="bg-white p-4 rounded-lg border border-gray-200 mb-4 new-task">
+            <div class="flex justify-between items-start">
+                <h4 class="font-medium text-gray-900 flex-1">عملية بيع جديدة</h4>
+                <button class="text-red-500 hover:text-red-700 delete-task">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <div class="mt-3 space-y-3">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">اسم الزبون</h4>
+                    <input type="text" class="sale-client w-full px-3 py-1 border border-gray-300 rounded-lg focus:ring-1 focus:ring-amber-500 focus:border-amber-500"
+                           placeholder="اسم الزبون" required>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1"> رقم الفاتورة</h4>
+                    <input type="number" class="sale-amount w-full px-3 py-1 border border-gray-300 rounded-lg focus:ring-1 focus:ring-amber-500 focus:border-amber-500"
+                           placeholder="المبلغ ">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">ملاحظات</h4>
+                    <textarea class="sale-notes w-full px-3 py-1 border border-gray-300 rounded-lg focus:ring-1 focus:ring-amber-500 focus:border-amber-500"
+                              rows="2" placeholder="الشرح والملاحظات"></textarea>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <script>
+        // Report data
+        let report = {
+            employee: { name: '', email: '' },
+            date: new Date().toISOString().split('T')[0],
+            visits: [],
+            calls: [],
+            price: [],
+            sales: []
+        };
+
+        // DOM elements
+        const employeeName = document.getElementById('employeeName');
+        const employeeEmail = document.getElementById('employeeEmail');
+        const reportDate = document.getElementById('reportDate');
+        const emailModal = document.getElementById('emailModal');
+        const closeEmailModal = document.getElementById('closeEmailModal');
+        const cancelEmailBtn = document.getElementById('cancelEmailBtn');
+        const emailForm = document.getElementById('emailForm');
+        const reportModal = document.getElementById('reportModal');
+        const closeReportModal = document.getElementById('closeReportModal');
+        
+        const reportContent = document.getElementById('reportContent');
+        const generateReportBtn = document.getElementById('generateReportBtn');
+        const sendReportBtn = document.getElementById('sendReportBtn');
+        const printReportBtn = document.getElementById('printReportBtn');
+        const clearReportBtn = document.getElementById('clearReportBtn');
+        const addVisitBtn = document.getElementById('addVisitBtn');
+        const addCallBtn = document.getElementById('addCallBtn');
+        const addSaleBtn = document.getElementById('addSaleBtn');
+         const addPriceBtn = document.getElementById('addPriceBtn');
+        const visitsContainer = document.getElementById('visitsContainer');
+        const callsContainer = document.getElementById('callsContainer');
+        const salesContainer = document.getElementById('salesContainer');
+         const priceContainer = document.getElementById('priceContainer');
+
+        // Templates
+        const visitTaskTemplate = document.getElementById('visitTaskTemplate');
+        const callTaskTemplate = document.getElementById('callTaskTemplate');
+        const saleTaskTemplate = document.getElementById('saleTaskTemplate');
+          const priceTaskTemplate = document.getElementById('priceTaskTemplate');
+
+        // Initialize the app
+        document.addEventListener('DOMContentLoaded', function() {
+            // Load saved report if exists
+            const savedReport = localStorage.getItem('dailyReportV2');
+            if (savedReport) {
+                report = JSON.parse(savedReport);
+                updateFormFields();
+                renderTasks();
+                updateSummary();
+            }
+            
+            // Set up employee info change listeners
+            employeeName.addEventListener('change', updateReportData);
+            employeeEmail.addEventListener('change', updateReportData);
+            reportDate.addEventListener('change', updateReportData);
+            
+            // Set up button event listeners
+            setupButtonListeners();
+            
+            // Set up modal listeners
+            setupModalListeners();
+            
+            // Set up task addition listeners
+            setupTaskAdditionListeners();
+        });
+
+        // Set up button listeners
+        function setupButtonListeners() {
+            // Generate report button
+            generateReportBtn.addEventListener('click', function() {
+                generateReport();
+                reportModal.classList.remove('hidden');
+            });
+            
+            // Send report button
+            sendReportBtn.addEventListener('click', function() {
+                if (report.visits.length === 0 && report.calls.length === 0 && report.sales.length === 0) {
+                    showToast('لم تقم بإضافة أي مهام إلى التقرير', 'error');
+                    return;
+                }
+                emailModal.classList.remove('hidden');
+            });
+            
+            // Print report button
+            printReportBtn.addEventListener('click', function() {
+                generateReport();
+                setTimeout(() => {
+                    window.print();
+                }, 500);
+            });
+            
+            // Clear report button
+            clearReportBtn.addEventListener('click', function() {
+                if (confirm('هل أنت متأكد من مسح جميع بيانات التقرير؟')) {
+                    clearReport();
+                    showToast('تم مسح التقرير بنجاح', 'success');
+                }
+            });
+        }
+
+        // Set up modal listeners
+        function setupModalListeners() {
+            // Email modal
+            closeEmailModal.addEventListener('click', () => emailModal.classList.add('hidden'));
+            cancelEmailBtn.addEventListener('click', () => emailModal.classList.add('hidden'));
+            
+            emailForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                sendEmail();
+                emailModal.classList.add('hidden');
+            });
+            
+            // Report modal
+            closeReportModal.addEventListener('click', () => reportModal.classList.add('hidden'));
+            printModalBtn.addEventListener('click', () => window.print());
+        }
+
+        // Set up task addition listeners
+        function setupTaskAdditionListeners() {
+            // Add visit
+            addVisitBtn.addEventListener('click', function() {
+                addTaskToContainer('visits');
+            });
+            
+            // Add call
+            addCallBtn.addEventListener('click', function() {
+                addTaskToContainer('calls');
+            });
+            
+            // Add sale
+            addSaleBtn.addEventListener('click', function() {
+                addTaskToContainer('sales');
+            });
+
+            // add price
+            addPriceBtn.addEventListener('click' , function() {
+                addTaskToContainer('price');
+            }
+        )
+
+           
+           
+        }
+
+        // Add a new task to container
+        function addTaskToContainer(type) {
+            let container, template;
+            
+            if (type === 'visits') {
+                container = visitsContainer;
+                template = visitTaskTemplate;
+            } else if (type === 'calls') {
+                container = callsContainer;
+                template = callTaskTemplate;
+            } else if (type === 'sales') {
+                container = salesContainer;
+                template = saleTaskTemplate;
+            }
+               else if (type === 'price') {
+                container = priceContainer ;
+                template = priceTaskTemplate ;
+            }
+        }
+            
+            // Check if container has "no tasks" message and remove it
+            if (container.firstElementChild && container.firstElementChild.tagName === 'P') {
+                container.innerHTML = '';
+            }
+            
+            // Clone the template
+            const taskElement = document.importNode(template.content, true);
+            
+            // Add delete event listener
+            const deleteBtn = taskElement.querySelector('.delete-task');
+            deleteBtn.addEventListener('click', function() {
+                taskElement.remove();
+                updateTasksFromUI();
+                
+                // If container is empty, show message
+                if (container.children.length === 0) {
+                    const message = document.createElement('p');
+                    message.className = 'text-sm text-gray-500 text-center';
+                    message.textContent = `لا توجد ${type === 'visits' ? 'زيارات' : type === 'calls' ? 'مكالمات' : 'عمليات بيع'} مسجلة بعد`;
+                    container.appendChild(message);
+                }
+            });
+            
+            // Add to container
+            container.appendChild(taskElement);
+            
+            // Focus on the first input
+            const firstInput = taskElement.querySelector('input, textarea, select');
+            if (firstInput) {
+                firstInput.focus();
+            }
+            
+            // Update tasks in report
+            updateTasksFromUI();
+        
+
+        // Update tasks from UI to report data
+        function updateTasksFromUI() {
+            // Visits
+            report.visits = [];
+            const visitElements = visitsContainer.querySelectorAll('.bg-white');
+            visitElements.forEach(visit => {
+                report.visits.push({
+                    client: visit.querySelector('.visit-client').value,
+                    type: visit.querySelector('.visit-type').value,
+                    notes: visit.querySelector('.visit-notes').value
+                });
+            });
+            
+            // Calls
+            report.calls = [];
+            const callElements = callsContainer.querySelectorAll('.bg-white');
+            callElements.forEach(call => {
+                report.calls.push({
+                    client: call.querySelector('.call-client').value,
+                    phone: call.querySelector('.call-phone').value,
+                    notes: call.querySelector('.call-notes').value
+                });
+            });
+            
+            // Sales
+            report.sales = [];
+            const saleElements = salesContainer.querySelectorAll('.bg-white');
+            saleElements.forEach(sale => {
+                report.sales.push({
+                    client: sale.querySelector('.sale-client').value,
+                    amount: parseFloat(sale.querySelector('.sale-amount').value || 0),
+                    notes: sale.querySelector('.sale-notes').value
+                });
+            });
+
+            //price
+               report.price = [];
+            const priceElements = priceContainer.querySelectorAll('.bg-white');
+            priceElements.forEach(price => {
+                report.price.push({
+                    client: price.querySelector('.price-client').value,
+                    amount: parseFloat(price.querySelector('.price-amount').value || 0),
+                    notes: sale.querySelector('.price-notes').value
+                });
+            });
+            
+            // Save and update summary
+            saveReport();
+            updateSummary();
+        }
+
+        // Update report data from form fields
+        function updateReportData() {
+            report.employee.name = employeeName.value;
+            report.employee.email = employeeEmail.value;
+            report.date = reportDate.value;
+            saveReport();
+        }
+
+        // Update form fields from report data
+        function updateFormFields() {
+            employeeName.value = report.employee.name;
+            employeeEmail.value = report.employee.email;
+            reportDate.value = report.date;
+        }
+
+        // Render tasks from report data
+        function renderTasks() {
+            // Clear containers
+            visitsContainer.innerHTML = '';
+            callsContainer.innerHTML = '';
+            salesContainer.innerHTML = '';
+            priceContainer.innerHTML = '';
+            
+            // Add "no tasks" messages if empty
+            if (report.visits.length === 0) {
+                visitsContainer.innerHTML = '<p class="text-sm text-gray-500 text-center">لا توجد زيارات مسجلة بعد</p>';
+            }
+            
+            if (report.calls.length === 0) {
+                callsContainer.innerHTML = '<p class="text-sm text-gray-500 text-center">لا توجد مكالمات مسجلة بعد</p>';
+            }
+            
+            if (report.sales.length === 0) {
+                salesContainer.innerHTML = '<p class="text-sm text-gray-500 text-center">لا توجد عمليات بيع مسجلة بعد</p>';
+            }
+
+             if (report.price.length === 0) {
+                priceContainer.innerHTML = '<p class="text-sm text-gray-500 text-center">لا توجد عروض أسعار   بعد</p>';
+            }
+            
+            // Add visits
+            report.visits.forEach(visit => {
+                const taskElement = document.importNode(visitTaskTemplate.content, true);
+                
+                // Fill values
+                taskElement.querySelector('.visit-client').value = visit.client;
+                taskElement.querySelector('.visit-type').value = visit.type;
+                taskElement.querySelector('.visit-notes').value = visit.notes || '';
+                
+                // Add delete event
+                taskElement.querySelector('.delete-task').addEventListener('click', function() {
+                    taskElement.remove();
+                    updateTasksFromUI();
+                });
+                
+                visitsContainer.appendChild(taskElement);
+            });
+            
+            // Add calls
+            report.calls.forEach(call => {
+                const taskElement = document.importNode(callTaskTemplate.content, true);
+                
+                // Fill values
+                taskElement.querySelector('.call-client').value = call.client;
+                taskElement.querySelector('.call-phone').value = call.phone || '';
+                taskElement.querySelector('.call-notes').value = call.notes || '';
+                
+                // Add delete event
+                taskElement.querySelector('.delete-task').addEventListener('click', function() {
+                    taskElement.remove();
+                    updateTasksFromUI();
+                });
+                
+                callsContainer.appendChild(taskElement);
+            });
+            
+            // Add sales
+            report.sales.forEach(sale => {
+                const taskElement = document.importNode(saleTaskTemplate.content, true);
+                
+                // Fill values
+                taskElement.querySelector('.sale-client').value = sale.client;
+                taskElement.querySelector('.sale-amount').value = sale.amount || '';
+                taskElement.querySelector('.sale-notes').value = sale.notes || '';
+                
+                // Add delete event
+                taskElement.querySelector('.delete-task').addEventListener('click', function() {
+                    taskElement.remove();
+                    updateTasksFromUI();
+                });
+                
+                salesContainer.appendChild(taskElement);
+            });
+
+
+            // add price 
+             report.price.forEach(price => {
+                const taskElement = document.importNode(priceTaskTemplate.content, true);
+                
+                // Fill values
+                taskElement.querySelector('.price-client').value = price.client;
+                taskElement.querySelector('.price-amount').value = price.amount || '';
+                taskElement.querySelector('.price-notes').value = price.notes || '';
+                
+                // Add delete event
+                taskElement.querySelector('.delete-task').addEventListener('click', function() {
+                    taskElement.remove();
+                    updateTasksFromUI();
+                });
+                
+                priceContainer.appendChild(taskElement);
+            });
+            
+            // Add input change listeners for dynamic tasks
+            const allInputs = document.querySelectorAll('input, textarea, select');
+            allInputs.forEach(input => {
+                input.addEventListener('change', updateTasksFromUI);
+            });
+        }
+
+        // Update the summary section
+        function updateSummary() {
+            const totalSales = report.sales.reduce((sum, sale) => sum + (sale.amount || 0), 0);
+            
+            document.getElementById('visitsCount').textContent = report.visits.length;
+            document.getElementById('callsCount').textContent = report.calls.length;
+            document.getElementById('salesCount').textContent = report.sales.length;
+             document.getElementById('priceCount').textContent = report.price.length;
+            document.getElementById('totalSales').textContent = formatCurrency(totalSales);
+        }
+
+        // Generate the report HTML
+        function generateReport() {
+            const totalSales = report.sales.reduce((sum, sale) => sum + (sale.amount || 0), 0);
+            
+            // Update print header info
+            document.getElementById('printEmployeeName').textContent = report.employee.name || 'غير محدد';
+            document.getElementById('printEmployeeEmail').textContent = report.employee.email || 'غير محدد';
+            document.getElementById('printReportDate').textContent = formatDate(report.date);
+            
+            // Generate report HTML
+            let html = `
+                <div class="space-y-8">
+                    <div class="border-b pb-4 mb-6">
+                        <h2 class="text-xl font-bold text-gray-800 mb-2">ملخص التقرير</h2>
+                        <div class="grid grid-cols-3 gap-4 text-center">
+                            <div class="bg-blue-50 p-3 rounded-lg">
+                                <div class="text-blue-600 font-bold text-lg">${report.visits.length}</div>
+                                <div class="text-sm text-gray-600">زيارة</div>
+                            </div>
+                            <div class="bg-green-50 p-3 rounded-lg">
+                                <div class="text-green-600 font-bold text-lg">${report.calls.length}</div>
+                                <div class="text-sm text-gray-600">مكالمة</div>
+                            </div>
+                            <div class="bg-amber-50 p-3 rounded-lg">
+                                <div class="text-amber-600 font-bold text-lg">${report.sales.length}</div>
+                                <div class="text-sm text-gray-600">عملية بيع</div>
+                            </div>
+
+                             <div class="bg-amber-50 p-3 rounded-lg">
+                                <div class="text-amber-600 font-bold text-lg">${report.price.length}</div>
+                                <div class="text-sm text-gray-600">عملية عرض سعر</div>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-4 bg-gray-50 p-3 rounded-lg">
+                            <div class="text-gray-800 font-bold text-lg">${formatCurrency(totalSales)}</div>
+                            <div class="text-sm text-gray-600">إجمالي المبيعات</div>
+                        </div>
+                    </div>
+            `;
+            
+            // Add visits section if exists
+            if (report.visits.length > 0) {
+                html += `
+                    <div>
+                        <h3 class="text-lg font-semibold text-blue-700 mb-3 flex items-center">
+                            <i class="fas fa-map-marker-alt ml-2"></i>
+                            الزيارات الميدانية (${report.visits.length})
+                        </h3>
+                        
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">اسم الزبون</th>
+                                        <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">نوع الزيارة</th>
+                                        <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">ملاحظات</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200">
+                `;
+                
+                report.visits.forEach(visit => {
+                    html += `
+                        <tr>
+                            <td class="px-4 py-2 whitespace-nowrap">
+                                <div class="font-medium text-gray-900">${visit.client}</div>
+                            </td>
+                            <td class="px-4 py-2 whitespace-nowrap">
+                                ${visit.type}
+                            </td>
+                            <td class="px-4 py-2 text-sm text-gray-500">
+                                ${visit.notes || 'لا يوجد'}
+                            </td>
+                        </tr>
+                    `;
+                });
+                
+                html += `
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            // Add calls section if exists
+            if (report.calls.length > 0) {
+                html += `
+                    <div>
+                        <h3 class="text-lg font-semibold text-green-700 mb-3 flex items-center">
+                            <i class="fas fa-phone-alt ml-2"></i>
+                            المكالمات الهاتفية (${report.calls.length})
+                        </h3>
+                        
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">اسم الزبون</th>
+                                        <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">رقم الهاتف</th>
+                                        <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">ملاحظات</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200">
+                `;
+                
+                report.calls.forEach(call => {
+                    html += `
+                        <tr>
+                            <td class="px-4 py-2 whitespace-nowrap">
+                                <div class="font-medium text-gray-900">${call.client}</div>
+                            </td>
+                            <td class="px-4 py-2 whitespace-nowrap">
+                                ${call.phone || 'غير محدد'}
+                            </td>
+                            <td class="px-4 py-2 text-sm text-gray-500">
+                                ${call.notes || 'لا يوجد'}
+                            </td>
+                        </tr>
+                    `;
+                });
+                
+                html += `
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // add price section if exists 
+                if (report.price.length > 0) {
+                html += `
+                    <div>
+                        <h3 class="text-lg font-semibold text-green-700 mb-3 flex items-center">
+                            <i class="fas fa-phone-alt ml-2"></i>
+                             عروض الأسعار (${report.price.length})
+                        </h3>
+                        
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">اسم الزبون</th>
+                                        <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">رقم الهاتف</th>
+                                        <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">ملاحظات</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200">
+                `;
+                
+                report.price.forEach(price => {
+                    html += `
+                        <tr>
+                            <td class="px-4 py-2 whitespace-nowrap">
+                                <div class="font-medium text-gray-900">${price.client}</div>
+                            </td>
+                            <td class="px-4 py-2 whitespace-nowrap">
+                                ${price.phone || 'غير محدد'}
+                            </td>
+                            <td class="px-4 py-2 text-sm text-gray-500">
+                                ${price.notes || 'لا يوجد'}
+                            </td>
+                        </tr>
+                    `;
+                });
+
+                   html += `
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                `;
+            }
+
+            
+            // Add sales section if exists
+            if (report.sales.length > 0) {
+                html += `
+                    <div>
+                        <h3 class="text-lg font-semibold text-amber-700 mb-3 flex items-center">
+                            <i class="fas fa-shopping-cart ml-2"></i>
+                            عمليات البيع (${report.sales.length})
+                        </h3>
+                        
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">اسم الزبون</th>
+                                        <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">قيمة البيع</th>
+                                        <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">ملاحظات</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200">
+                `;
+                
+                report.sales.forEach(sale => {
+                    html += `
+                        <tr>
+                            <td class="px-4 py-2 whitespace-nowrap">
+                                <div class="font-medium text-gray-900">${sale.client}</div>
+                            </td>
+                            <td class="px-4 py-2 whitespace-nowrap font-medium">
+                                ${formatCurrency(sale.amount)}
+                            </td>
+                            <td class="px-4 py-2 text-sm text-gray-500">
+                                ${sale.notes || 'لا يوجد'}
+                            </td>
+                        </tr>
+                    `;
+                });
+                
+                html += `
+                                    <tr class="bg-gray-50">
+                                        <td class="px-4 py-2 font-bold text-right" colspan="2">الإجمالي:</td>
+                                        <td class="px-4 py-2 font-bold">${formatCurrency(totalSales)}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            html += `
+                </div>
+            `;
+            
+            reportContent.innerHTML = html;
+        }
+
+        // Send email (simulated)
+        function sendEmail() {
+            const email = document.getElementById('managerEmail').value;
+            const subject = document.getElementById('emailSubject').value;
+            const message = document.getElementById('emailMessage').value;
+            
+            // Generate report text
+            const totalVisits = report.visits.length;
+            const totalCalls = report.calls.length;
+            const totalSales = report.sales.length;
+            const totalPrice = report.price.length;
+            
+            // In a real app, you would send this to your backend which would send the actual email
+            console.log('Email would be sent to:', email);
+            console.log('Subject:', subject);
+            console.log('Message:', message);
+            console.log('Report Summary:', {
+                employee: report.employee.name,
+                date: report.date,
+                totalVisits,
+                totalCalls,
+                totalSales ,
+                totalPrice
+            });
+            
+            // Show success message
+            showToast('تم إرسال التقرير بنجاح', 'success');
+        }
+
+        // Clear the entire report
+        function clearReport() {
+            report = {
+                employee: { name: '', email: '' },
+                date: new Date().toISOString().split('T')[0],
+                visits: [],
+                calls: [],
+                sales: [] ,
+                price : []
+            };
+            
+            updateFormFields();
+            renderTasks();
+            updateSummary();
+            saveReport();
+        }
+
+        // Save report to localStorage
+        function saveReport() {
+            localStorage.setItem('dailyReportV2', JSON.stringify(report));
+        }
+
+        // Helper functions
+        function formatDate(dateString) {
+            const options = { year: 'numeric', month: 'long', day: 'numeric' };
+            return new Date(dateString).toLocaleDateString('ar-EG', options);
+        }
+        
+        function formatCurrency(amount) {
+            return new Intl.NumberFormat('ar-SA', { 
+                style: 'currency', 
+                currency: 'SAR',
+                minimumFractionDigits: 2
+            }).format(amount);
+        }
+        
+        function showToast(message, type) {
+            const toast = document.createElement('div');
+            const colors = {
+                'success': 'bg-green-500',
+                'error': 'bg-red-500',
+                'info': 'bg-blue-500'
+            };
+            
+            toast.className = `fixed top-5 right-5 text-white px-4 py-3 rounded-lg shadow-lg z-50 ${colors[type]}`;
+            toast.textContent = message;
+            
+            document.body.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.remove();
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
