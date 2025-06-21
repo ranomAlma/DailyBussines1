@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>نظام التقارير اليومية</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/emailjs-com@3.2.0/dist/email.min.js"></script>
+
+    <style>
+        :root {
+            --primary: #3498db;
+            --secondary: #2980b9;
+            --success: #2ecc71;
+            --danger: #e74c3c;
+            --light: #ecf0f1;
+            --dark: #2c3e50;
+        }
+        
+        * {
+            box-sizing: border-box;
+            font-family: 'Tahoma', Arial, sans-serif;
+        }
+        
+        body {
+            background-color: #f5f7fa;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            color: var(--primary);
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: var(--dark);
+        }
+        
+        input, select, textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        
+        textarea {
+            min-height: 120px;
+            resize: vertical;
+        }
+        
+        .task-section {
+            border: 1px solid #eee;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        
+        .task-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .task-header h3 {
+            margin: 0;
+            color: var(--primary);
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: all 0.3s;
+        }
+        
+        .btn-primary {
+            background-color: var(--primary);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background-color: var(--secondary);
+        }
+        
+        .btn-danger {
+            background-color: var(--danger);
+            color: white;
+            padding: 8px 12px;
+        }
+        
+        .task-item {
+            background: #f9f9f9;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 15px;
+            border: 1px solid #eee;
+        }
+        
+        .task-row {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        
+        .task-row input, .task-row select {
+            flex: 1;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        
+        .modal-content {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            width: 90%;
+            max-width: 500px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        
+        @media (max-width: 768px) {
+            .task-row {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1><i class="fas fa-file-alt"></i> التقرير اليومي</h1>
+        
+        <form id="dailyReportForm">
+         <!----   <div class="form-group">
+                <label for="employeeName">اسم الموظف</label>
+                <input type="text" id="employeeName" required>
+            </div> --->
+
+                  <!-- Employee Name Dropdown -->
+                <div class="form-group"> 
+                    <label for="'employeeName" class="block text-sm font-medium text-gray-700 mb-1">
+                        اسم الموظف
+                        <span class="text-red-500">*</span>
+                    </label>
+                    <div class="relative">
+                        <select id="'employeeName" class="select-custom w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white pr-10">
+                            <option value="" disabled selected>اختر اسم الموظف</option>
+                            <option value="1">منال المغربي </option>
+                            <option value="2"> باهر الحاج علي</option>
+                            <option value="3">رضوان شربجي</option>
+                            <option value="4">عمار فتينة </option>
+                            <option value="5">رنيم المصري</option>
+                        </select>
+                    </div>
+                </div>
+         
+
+            
+            <div class="form-group">
+                <label for="reportDate">تاريخ التقرير</label>
+                <input type="date" id="reportDate" required>
+            </div>
+            
+            <!-- اتصالات -->
+            <div class="task-section">
+                <div class="task-header">
+                    <h3><i class="fas fa-phone"></i> الاتصالات</h3>
+                    <button type="button" class="btn btn-primary" onclick="addTask('calls')">
+                        <i class="fas fa-plus"></i> إضافة اتصال
+                    </button>
+                </div>
+                <div id="callsList"></div>
+            </div>
+            
+            <!-- زيارات -->
+            <div class="task-section">
+                <div class="task-header">
+                    <h3><i class="fas fa-map-marker-alt"></i> الزيارات</h3>
+                    <button type="button" class="btn btn-primary" onclick="addTask('visits')">
+                        <i class="fas fa-plus"></i> إضافة زيارة
+                    </button>
+                </div>
+                <div id="visitsList"></div>
+            </div>
+            
+            <!-- عروض أسعار -->
+            <div class="task-section">
+                <div class="task-header">
+                    <h3><i class="fas fa-file-invoice-dollar"></i> عروض الأسعار</h3>
+                    <button type="button" class="btn btn-primary" onclick="addTask('quotations')">
+                        <i class="fas fa-plus"></i> إضافة عرض
+                    </button>
+                </div>
+                <div id="quotationsList"></div>
+            </div>
+            
+            <!-- مبيعات -->
+            <div class="task-section">
+                <div class="task-header">
+                    <h3><i class="fas fa-shopping-cart"></i> المبيعات</h3>
+                    <button type="button" class="btn btn-primary" onclick="addTask('sales')">
+                        <i class="fas fa-plus"></i> إضافة بيع
+                    </button>
+                </div>
+                <div id="salesList"></div>
+            </div>
+            
+            <!-- أعمال أخرى -->
+            <div class="task-section">
+                <div class="task-header">
+                    <h3><i class="fas fa-tasks"></i> أعمال أخرى</h3>
+                    <button type="button" class="btn btn-primary" onclick="addTask('others')">
+                        <i class="fas fa-plus"></i> إضافة عمل
+                    </button>
+                </div>
+                <div id="othersList"></div>
+            </div>
+            
+            <div class="form-group">
+                <label for="comments">ملاحظات إضافية</label>
+                <textarea id="comments"></textarea>
+            </div>
+            
+            <button type="submit" class="btn btn-primary" style="width: 100%; padding: 15px;">
+                <i class="fas fa-paper-plane"></i> إرسال التقرير للمدير
+            </button>
+        </form>
+    </div>
+    
+    <!-- نموذج التأكيد -->
+    <div class="modal" id="confirmModal">
+        <div class="modal-content">
+            <h2 style="text-align: center;"><i class="fas fa-check-circle" style="color: var(--success);"></i> تم بنجاح</h2>
+            <p id="confirmMessage" style="text-align: center;"></p>
+            <button class="btn btn-primary" style="width: 100%;" onclick="closeModal()">موافق</button>
+        </div>
+    </div>
+    
+    <script>
+        // أنواع المهام
+        const taskTypes = {
+            calls: {
+                title: "اتصال",
+                fields: [
+                    {type: "time", placeholder: "الوقت", required: true},
+                    {type: "text", placeholder: "اسم العميل", required: true},
+                    {type: "select", options: [
+                        {value: "new", label: "تعريفية لزبون جديد"},
+                        {value: "appointment", label: "تحديد موعد زيارة"},
+                        {value: "technical", label: "شرح فني"},
+                        {value: "invoice", label: "متابعة فاتورة"},
+                        {value: "other", label: "أخرى"}
+                    ], required: true},
+                    {type: "textarea", placeholder: "تفاصيل الاتصال"}
+                ]
+            },
+            visits: {
+                title: "زيارة",
+                fields: [
+                    {type: "time", placeholder: "الوقت", required: true},
+                    {type: "text", placeholder: "اسم العميل", required: true},
+                    {type: "text", placeholder: "الموقع", required: true},
+                    {type: "select", options: [
+                        {value: "new", label: "زيارة جديدة"},
+                        {value: "followup", label: "متابعة"},
+                        {value: "installation", label: "تثبيت"},
+                        {value: "maintenance", label: "صيانة"},
+                        {value: "technical", label: "كشف فني"},
+                        {value: "collection", label: "تحصيل فاتورة"}
+                    ], required: true},
+                    {type: "textarea", placeholder: "ملاحظات الزيارة"}
+                ]
+            },
+            quotations: {
+                title: "عرض سعر",
+                fields: [
+                    {type: "time", placeholder: "الوقت", required: true},
+                    {type: "text", placeholder: "اسم العميل", required: true},
+                    {type: "text", placeholder: "المنتج/الخدمة", required: true},
+                    {type: "number", placeholder: "القيمة", required: true},
+                    {type: "textarea", placeholder: "تفاصيل العرض"}
+                ]
+            },
+            sales: {
+                title: "بيع",
+                fields: [
+                    {type: "time", placeholder: "الوقت", required: true},
+                    {type: "text", placeholder: "اسم العميل", required: true},
+                    {type: "text", placeholder: "المنتج/الخدمة", required: true},
+                    {type: "number", placeholder: "المبلغ", required: true},
+                    {type: "textarea", placeholder: "تفاصيل البيع"}
+                ]
+            },
+            others: {
+                title: "عمل آخر",
+                fields: [
+                    {type: "time", placeholder: "الوقت", required: true},
+                    {type: "text", placeholder: "وصف العمل", required: true},
+                    {type: "textarea", placeholder: "تفاصيل العمل"}
+                ]
+            }
+        };
+
+        // تعيين تاريخ اليوم
+        document.getElementById('reportDate').valueAsDate = new Date();
+        
+        // إضافة مهمة جديدة
+        function addTask(type) {
+            const task = taskTypes[type];
+            const list = document.getElementById(`${type}List`);
+            
+            const taskItem = document.createElement('div');
+            taskItem.className = 'task-item';
+            
+            let html = `<div class="task-row">
+                <button type="button" class="btn btn-danger" onclick="this.parentElement.parentElement.remove()">
+                    <i class="fas fa-trash"></i>
+                </button>
+                <input type="text" value="${task.title}" readonly>
+            </div>`;
+            
+            task.fields.forEach(field => {
+                if (field.type === 'select') {
+                    html += `<div class="task-row">
+                        <select ${field.required ? 'required' : ''}>
+                            ${field.options.map(opt => 
+                                `<option value="${opt.value}">${opt.label}</option>`
+                            ).join('')}
+                        </select>
+                    </div>`;
+                } 
+                else if (field.type === 'textarea') {
+                    html += `<div class="task-row">
+                        <textarea placeholder="${field.placeholder}"></textarea>
+                    </div>`;
+                }
+                else {
+                    html += `<div class="task-row">
+                        <input type="${field.type}" 
+                               placeholder="${field.placeholder}" 
+                               ${field.required ? 'required' : ''}>
+                    </div>`;
+                }
+            });
+            
+            taskItem.innerHTML = html;
+            list.appendChild(taskItem);
+        }
+        
+        // إرسال التقرير
+        document.getElementById('dailyReportForm').onsubmit = function(e) {
+            e.preventDefault();
+            
+            // جمع بيانات التقرير
+            const report = {
+                employee: document.getElementById('employeeName').value,
+                date: document.getElementById('reportDate').value,
+                comments: document.getElementById('comments').value,
+                tasks: {}
+            };
+            
+            // جمع المهام
+            for (const type in taskTypes) {
+                report.tasks[type] = [];
+                const items = document.getElementById(`${type}List`).children;
+                
+                for (let item of items) {
+                    const inputs = item.querySelectorAll('input, select, textarea');
+                    const taskData = {};
+                    
+                    inputs.forEach(input => {
+                        const name = input.placeholder || input.getAttribute('readonly');
+                        if (name) {
+                            taskData[name] = input.value;
+                        } else if (input.tagName === 'SELECT') {
+                            taskData['نوع'] = input.options[input.selectedIndex].text;
+                        }
+                    });
+                    
+                    report.tasks[type].push(taskData);
+                }
+            }
+       
+            //test
+            emailjs.init("xZ3oynNJkBj2MmSE4T_oL"); // استبدل YOUR_USER_ID بمعرف المستخدم الخاص بك
+async function sendTestEmail() {
+    try {
+        const response = await emailjs.send("service_x80mh98", "template_n9qmrkz ", {
+            employee_name: report.employee,
+            report_date: report.date,
+            report_content : formatReportForEmail(report) ,
+
+            to_email: "bayanma555@gmail.com", // بريد المدير
+            from_email: "ranoshki6@gmail.com" // بريدك
+        });
+        console.log("تم إرسال البريد بنجاح", response);
+    } catch (error) {
+        console.error("فشل إرسال البريد:", error);
+    }
+}
+// استدعاء الدالة
+sendTestEmail();
+           // تجربة 
+/*
+emailjs.init("xZ3oynNJkBj2MmSE4T_oL"); // احصل عليه من لوحة تحكم EmailJS
+// template_n9qmrkz   [ template id] 
+// service_x80mh98 [service id ]
+// public key [xZ3oynNJkBj2MmSE4T_oL]
+// إرسال البريد الإلكتروني
+try {
+    await emailjs.send("service_x80mh98 ", "template_n9qmrkz", {
+        employee_name: report.employee,
+        report_date: report.date,
+        report_content: formatReportForEmail(report),
+        to_email: "ranoshki6@gmail.com", // بريد المدير
+        from_email: "bayanma555@gmail.com" // بريد النظام
+    });
+    
+    console.log("تم إرسال البريد بنجاح");
+} catch (error) {
+    console.error("فشل إرسال البريد:", error);
+    alert("حدث خطأ أثناء إرسال التقرير، يرجى المحاولة لاحقاً");
+    return;
+}
+    */
+
+// دالة لتنسيق التقرير للإيميل
+function formatReportForEmail(report) {
+    let emailContent = `
+        <h2>تقرير يومي من: ${report.employee}</h2>
+        <p><strong>التاريخ:</strong> ${report.date}</p>
+        <hr>
+    `;
+    
+    // إضافة المهام للإيميل
+    for (const type in report.tasks) {
+        if (report.tasks[type].length > 0) {
+            emailContent += `<h3>${type === 'calls' ? 'الاتصالات' : 
+                              type === 'visits' ? 'الزيارات' : 
+                              type === 'quotations' ? 'عروض الأسعار' : 
+                              type === 'sales' ? 'المبيعات' : 'أعمال أخرى'}</h3>`;
+            
+            report.tasks[type].forEach(task => {
+                emailContent += `<div style="margin-bottom: 15px; padding: 10px; background: #f5f5f5;">`;
+                for (const key in task) {
+                    emailContent += `<p><strong>${key}:</strong> ${task[key]}</p>`;
+                }
+                emailContent += `</div>`;
+            });
+        }
+    }
+    
+    if (report.comments) {
+        emailContent += `
+            <h3>ملاحظات إضافية</h3>
+            <p>${report.comments}</p>
+        `;
+    }
+    
+    return emailContent;
+}
+
+            // في الواقع الفعلي، ستحتاج إلى استخدام خدمة مثل EmailJS أو إرسال البيانات لسيرفر
+            
+            // عرض رسالة التأكيد
+            document.getElementById('confirmMessage').innerHTML = `
+                تم إرسال التقرير بنجاح إلى المدير<br>
+                <small>سيتم إرسال نسخة إلى بريدك الإلكتروني</small>
+            `;
+            document.getElementById('confirmModal').style.display = 'flex';
+            
+            // مسح النموذج بعد الإرسال (اختياري)
+            setTimeout(() => {
+                this.reset();
+                document.getElementById('reportDate').valueAsDate = new Date();
+                for (const type in taskTypes) {
+                    document.getElementById(`${type}List`).innerHTML = '';
+                }
+            }, 2000);
+        };
+        
+        // إغلاق النافذة المنبثقة
+        function closeModal() {
+            document.getElementById('confirmModal').style.display = 'none';
+        }
+    </script>
+</body>
+</html>
